@@ -1,28 +1,46 @@
 import { DataTypes } from 'sequelize';
 import sequelize from '../config/db.js';
+import Permission from './permissionModel.js';
 
-const User = sequelize.define('user', {
-  name: {
-    type: DataTypes.STRING,
-    allowNull: false
+const User = sequelize.define('User', {
+  userId: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
   },
-  email: {
-    type: DataTypes.STRING,
+  username: {
+    type: DataTypes.STRING(45),
     allowNull: false,
     unique: true
   },
   password: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(45),
     allowNull: false
   },
-  role: {
-    type: DataTypes.STRING,
-    defaultValue: 'user'
+  email: {
+    type: DataTypes.STRING(45),
+    allowNull: false,
+    unique: true
   },
-  cartData: {
-    type: DataTypes.JSON,
-    defaultValue: {}
+  address: {
+    type: DataTypes.STRING(255)
+  },
+  phoneNumber: {
+    type: DataTypes.STRING(20)
+  },
+  permissionId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: Permission,
+      key: 'permissionId'
+    }
   }
+}, {
+  tableName: 'user',
+  timestamps: false // 移除 createdAt 和 updatedAt 字段
 });
+
+User.belongsTo(Permission, { foreignKey: 'permissionId' });
 
 export default User;

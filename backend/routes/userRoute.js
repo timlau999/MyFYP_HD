@@ -1,9 +1,28 @@
-import express from "express";
-import { loginUser, registerUser } from "../controllers/userController.js";
+// ForTest/backend/routes/userRoute.js
+import express from 'express';
+import { registerUser, loginUser, getProfileData, getCustomerId, updateProfileData, getUserInfoData, updateUserInfoData } from '../controllers/userController.js';
 
-const userRouter = express.Router();
+const router = express.Router();
 
-userRouter.post("/register", registerUser);
-userRouter.post("/login", loginUser);
+// Register a new user
+router.post('/register', registerUser);
 
-export default userRouter; // 添加这行代码
+// Login a user
+router.post('/login', loginUser);
+
+// 获取用户的 profile 资料
+router.get('/profile/:customerId', getProfileData);
+
+// 新增：获取 customerId
+router.get('/customer/:userId', getCustomerId);
+
+// 修改用户的 profile 资料
+router.put('/profile/:customerId', updateProfileData);
+
+// 获取用户的详细资料
+router.get('/userinfo/:customerId', getUserInfoData);
+
+// 修改用户的详细资料
+router.put('/userinfo/:customerId', updateUserInfoData);
+
+export default router;

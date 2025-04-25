@@ -1,73 +1,210 @@
-import userModel from "../models/userModel.js";
-import jwt from "jsonwebtoken";
-import bcrypt from "bcrypt";
-import validator from "validator";
+// ForTest/backend/controllers/userController.js
+import User from '../models/userModel.js';
+import Permission from '../models/permissionModel.js';
+import Admin from '../models/adminModel.js';
+import Staff from '../models/staffModel.js';
+import Customer from '../models/customerModel.js';
+import CustomerProfile from '../models/customerProfileModel.js';
+import jwt from 'jsonwebtoken';
 
-// login user
-const loginUser = async (req, res) => {
-  const { email, password } = req.body;
-  try {
-    const user = await userModel.findOne({ email });
-    if (!user) {
-      return res.json({ success: false, message: "User Doesn't exist" });
-    }
-    const isMatch =await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.json({ success: false, message: "Invalid Credentials" });
-    }
-    const role=user.role;
-    const token = createToken(user._id);
-    res.json({ success: true, token,role });
-  } catch (error) {
-    console.log(error);
-    res.json({ success: false, message: "Error" });
-  }
-};
-
-// Create token
-const createToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET);
-};
-
-// register user
+// Register a new user
 const registerUser = async (req, res) => {
-  const { name, email, password } = req.body;
-  try {
-    // checking user is already exist
-    const exists = await userModel.findOne({ email });
-    if (exists) {
-      return res.json({ success: false, message: "User already exists" });
+    try {
+        const { username, password, email, address, phoneNumber, permissionId, height, weight, allergy, medicalConditions, dietaryPreference } = req.body;
+
+        // Check if the user already exists
+        const existingUser = await User.findOne({ where: { username } });
+        if (existingUser) {
+            return res.json({ success: false, message: 'Username already exists' });
+        }
+
+        // Create a new user
+        const newUser = await User.create({
+            username,
+            password,
+            email,
+            address,
+            phoneNumber,
+            permissionId
+        });
+
+        // Create a new customer record
+        const newCustomer = await Customer.create({
+            customerId: newUser.userId, // 假设 customerId 和 userId 相同
+            userId: newUser.userId
+        });
+
+        // Create a new customer profile record
+        await CustomerProfile.create({
+            customerId: newCustomer.customerId,
+            height,
+            weight,
+            allergy,
+            medicalConditions,
+            dietaryPreference
+        });
+
+        res.json({ success: true, message: 'User registered successfully' });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: 'Error registering user' });
     }
-
-    // validating email format and strong password
-    if (!validator.isEmail(email)) {
-      return res.json({ success: false, message: "Please enter valid email" });
-    }
-    if (password.length < 8) {
-      return res.json({
-        success: false,
-        message: "Please enter strong password",
-      });
-    }
-
-    // hashing user password
-    const salt = await bcrypt.genSalt(Number(process.env.SALT));
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    const newUser = new userModel({
-      name: name,
-      email: email,
-      password: hashedPassword,
-    });
-
-    const user = await newUser.save();
-    const role=user.role;
-    const token = createToken(user._id);
-    res.json({ success: true, token, role});
-  } catch (error) {
-    console.log(error);
-    res.json({ success: false, message: "Error" });
-  }
 };
 
-export { loginUser, registerUser };
+// Login a user
+const loginUser = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+
+        // Find the user by email
+        const user = await User.findOne({ where: { email } });
+        if (!user) {
+            return res.json({ success: false, message: 'User not found' });
+        }
+
+        // Compare the passwords
+        if (password!== user.password) {
+            return res.json({ success: false, message: 'Invalid password' });
+        }
+
+        // Get the user's role
+        let role = '';
+        const admin = await Admin.findOne({ where: { userId: user.userId } });
+        if (admin) {
+            role = 'admin';
+        } else {
+            const staff = await Staff.findOne({ where: { userId: user.userId } });
+            if (staff) {
+                role = 'staff';
+            } else {
+                const customer = await Customer.findOne({ where: { userId: user.userId } });
+                if (customer) {
+                    role = 'customer';
+                }
+            }
+        }
+
+        // Generate a JWT token
+        const token = jwt.sign({ id: user.userId, role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+        res.json({ success: true, message: 'Login successful', token, role, username: user.username, id: user.userId });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: 'Error logging in' });
+    }
+};
+
+// 获取用户的 profile 资料
+const getProfileData = async (req, res) => {
+    try {
+        const customerId = req.params.customerId;
+        console.log('Received customerId:', customerId); 
+        // 查找用戶的 profile 資料
+        const profileData = await CustomerProfile.findOne({ where: { customerId } });
+        if (!profileData) {
+            return res.json({ success: false, message: 'Profile data not found' });
+        }
+
+        res.json({ success: true, data: profileData });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: 'Error fetching profile data' });
+    }
+};
+
+// 新增：获取 customerId
+const getCustomerId = async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        const customer = await Customer.findOne({ where: { userId } });
+        if (!customer) {
+            return res.json({ success: false, message: 'Customer not found' });
+        }
+        res.json({ success: true, customerId: customer.customerId });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: 'Error fetching customerId' });
+    }
+};
+
+// 修改用户的 profile 资料
+const updateProfileData = async (req, res) => {
+    try {
+        const customerId = req.params.customerId;
+        const { height, weight, allergy, medicalConditions, dietaryPreference } = req.body;
+
+        const profileData = await CustomerProfile.findOne({ where: { customerId } });
+        if (!profileData) {
+            return res.json({ success: false, message: 'Profile data not found' });
+        }
+
+        await profileData.update({
+            height,
+            weight,
+            allergy,
+            medicalConditions,
+            dietaryPreference
+        });
+
+        res.json({ success: true, message: 'Profile data updated successfully' });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: 'Error updating profile data' });
+    }
+};
+
+// 获取用户的详细资料
+const getUserInfoData = async (req, res) => {
+    try {
+        const customerId = req.params.customerId;
+        const customer = await Customer.findOne({ where: { customerId } });
+        if (!customer) {
+            return res.json({ success: false, message: 'Customer not found' });
+        }
+        const user = await User.findOne({ where: { userId: customer.userId } });
+        if (!user) {
+            return res.json({ success: false, message: 'User not found' });
+        }
+        const userInfoData = {
+            customerId,
+            username: user.username,
+            password: user.password,
+            email: user.email,
+            address: user.address,
+            phoneNumber: user.phoneNumber
+        };
+        res.json({ success: true, data: userInfoData });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: 'Error fetching user info data' });
+    }
+};
+
+// 修改用户的详细资料
+const updateUserInfoData = async (req, res) => {
+    try {
+        const customerId = req.params.customerId;
+        const { username, password, email, address, phoneNumber } = req.body;
+        const customer = await Customer.findOne({ where: { customerId } });
+        if (!customer) {
+            return res.json({ success: false, message: 'Customer not found' });
+        }
+        const user = await User.findOne({ where: { userId: customer.userId } });
+        if (!user) {
+            return res.json({ success: false, message: 'User not found' });
+        }
+        await user.update({
+            username,
+            password,
+            email,
+            address,
+            phoneNumber
+        });
+        res.json({ success: true, message: 'User info data updated successfully' });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: 'Error updating user info data' });
+    }
+};
+
+export { registerUser, loginUser, getProfileData, getCustomerId, updateProfileData, getUserInfoData, updateUserInfoData };
