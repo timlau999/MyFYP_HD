@@ -1,0 +1,44 @@
+.user-avatar {
+    position: relative;
+    cursor: pointer;
+}
+
+.dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background-color: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 10px;
+    z-index: 1;
+    min-width: 150px; /* 增加最小宽度 */
+}
+
+.dropdown.open {
+    display: block;
+}
+
+.dropdown p {
+    margin: 0;
+    padding-bottom: 5px;
+}
+
+.dropdown hr {
+    margin: 5px 0;
+}
+
+.dropdown button {
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+    color: #333;
+    text-align: left;
+    width: 100%;
+}
+
+.dropdown button:hover {
+    color: #000;
+}
